@@ -1,0 +1,105 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: this is a test
+Metadata: {}
+Parameters:
+  JJTechVPCCidr:
+    Description: Choose Cidr for Vpc
+    Type: String
+    Default: 10.23.0.0/16
+  Subnet1Cidr:
+    Description: Choose Cidr for Subnet1
+    Type: String
+    Default: 10.23.1.0/24
+  Subnet2Cidr:
+    Description: Choose Cidr for Subnet1
+    Type: String
+    Default: 10.23.2.0/24
+  Subnet1AZs:
+    Description: Choose AZ for Subnet1
+    Type: AWS::EC2::AvailabilityZone::Name
+  Subnet2AZs:
+    Description: Choose AZ for Subnet1
+    Type: AWS::EC2::AvailabilityZone::Name
+Mappings: {}
+Conditions: {}
+Resources:
+  JJTechVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock:
+        Ref: JJTechVPCCidr
+      InstanceTenancy: default
+      Tags:
+      - Key: Name
+        Value: JJTechVPC
+  Subnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: true
+      AvailabilityZone:
+        Ref: Subnet1AZs
+      VpcId:
+        Ref: JJTechVPC
+      CidrBlock:
+        Ref: Subnet1Cidr
+      Tags:
+      - Key: Name
+        Value: Subnet1
+  Subnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: true
+      AvailabilityZone:
+        Ref: Subnet2AZs
+      VpcId:
+        Ref: JJTechVPC
+      CidrBlock:
+        Ref: Subnet2Cidr
+      Tags:
+      - Key: Name
+        Value: Subnet2
+  MyAppIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: MyAppIGW
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: JJTechVPC
+      InternetGatewayId:
+        Ref: MyAppIGW
+  PublicSubnetRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: JJTechVPC
+      Tags:
+      - Key: Name
+        Value: PublicSubnetRT
+  RouteIGW:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: PublicSubnetRT
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: MyAppIGW
+  Subnet1RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: Subnet1
+      RouteTableId:
+        Ref: PublicSubnetRT
+  Subnet2RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: Subnet2
+      RouteTableId:
+        Ref: PublicSubnetRT
+Output: {}
