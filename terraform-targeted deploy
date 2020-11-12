@@ -1,0 +1,32 @@
+Procedure for targeted deployment or destroy
+
+
+select the TF workspace
+click on variables
+scroll to variables
+click on the 3 dots
+edit
+set variables as below depending on the module to target deploy or destroy
+save variables
+queue plan
+confirm and run
+
+
+
+
+Targeted  destroy varaibles
+
+
+"-var-file=/terraform/uat/uat-us-west-2.tfvars" -target=module.corecard-dist-dbservers -destroy -target=module.start-dist-db-automation -destroy
+
+
+Targeted  deploymengt varaibles
+
+
+"-var-file=/terraform/uat/uat-us-west-2.tfvars" -target=module.corecard-dist-dbservers
+
+
+Regular deplyoment varaibles
+
+
+"-var-file=/terraform/uat/uat-us-west-2.tfvars"
