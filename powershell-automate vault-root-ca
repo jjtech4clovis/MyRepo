@@ -1,0 +1,24 @@
+pulls file, convert to b64
+
+
+
+
+$cert_file_name = "C:\Temp\vault-root-ca.txt"
+$cert_file_name_b64 = "c:\Temp\root-ca.pfx"
+$cert_store_location_dest = "Cert:\LocalMachine\Root"
+$cert_secret_name = "UAT/vault-root-ca"
+
+try {
+aws secretsmanager get-secret-value --secret-id $cert_secret_name --query SecretBinary --region us-east-1 --output text > $cert_file_name
+$b64 = Get-Content $cert_file_name
+
+$bytes = [Convert]::FromBase64String($b64)
+[IO.File]::WriteAllBytes($cert_file_name_b64, $bytes)
+write-host 'File Path - ' $cert_file_name_b64
+
+Import-Certificate -FilePath $cert_file_name_b64 -CertStoreLocation $cert_store_location_dest
+
+}
+catch {
+    Write-Error $_
+}
