@@ -1,0 +1,133 @@
+---
+
+description: "Install vault root cA on server using SSM Automation"
+schemaVersion: "0.3"
+assumeRole: "${assumeRole}"
+parameters:
+  pathToScripts:
+    default: "${pathToScripts}"
+    description: "Path in S3 bucket where Vault CA scripts are placed"
+    type: "String"
+  configBucket:
+    default: "${configBucket}"
+    description: "S3 bucket where Patch artifacts are placed"
+    type: "String" 
+  environment:
+    default: "${environment}"
+    description: "Environment and server where vault root ca will be installed"
+    type: "String"
+mainSteps:
+- name: "targetInstanceIds"
+  action: aws:executeAwsApi
+  onFailure: "Abort"
+  inputs:
+    Service: ec2
+    Api: DescribeInstances
+    Filters:  
+    - Name: "tag:component"
+      Values: ["${component_tag_appname}"]
+    - Name: "tag:environment"
+      Values: ["${environment}"]
+    - Name: "tag:region"
+      Values: ["${region}"]
+    - Name: "instance-state-name"
+      Values: [ "running" ]
+  outputs:
+  - Name: InstanceIds
+    Selector: "$.Reservations..Instances..InstanceId"
+    Type: "StringList"
+      
+################################### Begin Step:1 ##############################
+
+- name: "createScriptsDirectory"
+  action: "aws:runCommand"
+  onFailure: "Abort"
+  inputs:
+    DocumentName: "AWS-RunPowerShellScript"
+    InstanceIds:
+      - "{{targetInstanceIds.InstanceIds}}"
+    Parameters:
+      commands:
+        - |            
+            md C:/vaultCA
+
+- name: "downloadSimCertScriptsFromS3"
+  action: "aws:runCommand"
+  onFailure: "Abort"
+  inputs:
+    DocumentName: "AWS-RunPowerShellScript"
+    InstanceIds:
+      - "{{targetInstanceIds.InstanceIds}}"
+    Parameters:
+      commands:
+        - |            
+            aws s3 cp s3://{{configBucket}}/{{pathToScripts}} C:/vaultCA/sim_cert.ps1
+
+- name: "RunSimCertPS1Script"
+  action: "aws:runCommand"
+  onFailure: "Abort"
+  inputs:
+    DocumentName: "AWS-RunPowerShellScript"
+    InstanceIds:
+      - "{{targetInstanceIds.InstanceIds}}"
+    Parameters:
+      commands:
+        - |            
+            C:\vaultCA\sim_cert.ps1
+            
+            
+            
+            
+            data block
+            
+     data "template_file" "install_root_ca" {
+  count    = var.create_ssm_document ? 1 : 0
+  template = "${file("${path.root}/scripts/templates/vault_root_ca.yml")}"
+  vars = {
+    assumeRole            = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.iam_role}-${var.environment}"
+    environment           = var.environment
+    region                = var.region
+    pathToScripts         = "SIMConfig/sim_cert.ps1"
+    configBucket          = "${var.component}-${lower(local.common_tags["environment"])}-${var.region}-config-files"
+    component_tag_appname = "${var.component_tag_appname["sim"]}"
+  }
+}
+
+
+
+#### module###
+
+module "ssm-document" {
+  source          = "git::ssh://git@bitbucket.infra.marcus.com:7999/corecard/modules-ssm-commands.git//ssm-document?ref=v5.0"
+  deploy          = var.deploy_root_CA && var.create_ssm_document ? true : false
+  name            = "Install_root_ca_${var.component_tag_appname["sim"]}-${var.environment}-${data.aws_region.current.name}"
+  document_type   = "Automation"
+  document_format = "YAML"
+
+  content = data.template_file.install_root_ca[0].rendered
+
+  tags = merge(
+    local.common_tags,
+    local.owner_tags,
+  )
+}
+
+module "start-vaultCA-installation" {
+  source = "git::ssh://git@bitbucket.infra.marcus.com:7999/corecard/modules-ssm-commands.git?ref=v1.0"
+
+  # Count is set to 1 to run association. 0 for no association.
+  deploy        = var.deploy_root_CA ? 1 : 0
+  environment   = var.environment
+  command_name  = "Install_root_ca_Automationb${var.environment}"
+  target_key    = "InstanceIds"
+  target_values = [var.instance_count > 0 ? "${module.corecard-sim-servers.instance_id}" : null]
+  description   = "Start root ca installation"
+  action        = "aws:runPowerShellScript"
+  run_command   = "Start-SSMAutomationExecution -documentname Install_root_ca_${var.component_tag_appname["sim"]}-${var.environment}-${data.aws_region.current.name}"
+  tags = merge(
+    local.common_tags,
+    local.owner_tags,
+  )
+}
+
+
