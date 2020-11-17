@@ -1,0 +1,18 @@
+To log into aws managed AD server for sharerd services
+
+
+get the ip address of the mad instance running the the shared services account
+
+
+user  = cc-ss-dev-east\kebrose
+password= pw of user
+
+
+To navigate to AD and rmove or add computers
+
+
+	search active directory users and compyers
+	expand domain example = dev-us-east-1.ad.cc-pxx2.xxx.xxxxx.xxx
+	expand domainNetBIOSName eg = cc-ss-dev-east
+	select computers
+	 you can add or remove computers
